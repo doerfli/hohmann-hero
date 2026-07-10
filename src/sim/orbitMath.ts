@@ -44,3 +44,13 @@ export function hohmannLeadAngle(r1: number, r2: number): number {
   const targetTravel = Math.PI * Math.pow(transferSemiMajorAxis / r2, 1.5);
   return Math.PI - targetTravel;
 }
+
+/** Signed angular separation from ship to target, normalized to (-π, π]. */
+export function phaseAngle(shipPos: Vec2, targetPos: Vec2): number {
+  const shipAngle = Math.atan2(shipPos.y, shipPos.x);
+  const targetAngle = Math.atan2(targetPos.y, targetPos.x);
+  let diff = (targetAngle - shipAngle) % (2 * Math.PI);
+  if (diff <= -Math.PI) diff += 2 * Math.PI;
+  else if (diff > Math.PI) diff -= 2 * Math.PI;
+  return diff;
+}

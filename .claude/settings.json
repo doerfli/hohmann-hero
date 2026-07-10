@@ -16,7 +16,12 @@
       "Bash(mise ls *)",
       "Bash(mise which *)",
       "Bash(mise exec *)",
-      "Bash(node /tmp/claude-1000/-workspace/d16b1efc-fe0c-435a-97e6-2eba27246813/scratchpad/strength.mjs)"
+      "Bash(node /tmp/claude-1000/-workspace/d16b1efc-fe0c-435a-97e6-2eba27246813/scratchpad/strength.mjs)",
+      "Bash(./node_modules/.bin/vitest run *)",
+      "Bash(command -v mise)",
+      "Read(//home/vscode/.local/share/mise/installs/**)",
+      "Bash(find / -maxdepth 6 -iname \"bun\" -type f)",
+      "Bash(command -v chromium-cli)"
     ]
   }
 }

@@ -17,6 +17,8 @@ export interface GameState {
   burnSign: BurnSign;
   warpMultiplier: number;
   phase: Phase;
+  /** Count of discrete burn holds this run (a scoring input), incremented once per pointerdown, not per physics sub-step. */
+  burnCount: number;
 }
 
 export function createGameState(level: Level): GameState {
@@ -27,6 +29,7 @@ export function createGameState(level: Level): GameState {
     burnSign: 0,
     warpMultiplier: 1,
     phase: "playing",
+    burnCount: 0,
   };
 }
 
@@ -37,4 +40,11 @@ export function resetGameState(state: GameState): void {
   state.burnSign = fresh.burnSign;
   state.warpMultiplier = fresh.warpMultiplier;
   state.phase = fresh.phase;
+  state.burnCount = fresh.burnCount;
+}
+
+/** Switches to a new level and resets to its starting state. */
+export function switchLevel(state: GameState, level: Level): void {
+  state.level = level;
+  resetGameState(state);
 }

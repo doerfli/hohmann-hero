@@ -25,7 +25,7 @@ RUN echo "eval \"\$(starship init bash)\"" >> /home/vscode/.bashrc && echo "eval
 
 USER vscode
 
-# RUN curl https://mise.run | sh
-# RUN echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
-# RUN echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
+RUN curl https://mise.run | sh
+RUN echo 'eval "$(~/.local/bin/mise activate zsh)"' >> ~/.zshrc
+RUN echo 'eval "$(~/.local/bin/mise activate bash)"' >> ~/.bashrc
 

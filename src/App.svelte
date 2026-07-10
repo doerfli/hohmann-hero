@@ -4,7 +4,9 @@
   import { startLoop } from "./game/loop";
   import { createGameState, resetGameState } from "./game/state";
   import { LEVEL_1 } from "./game/levels";
+  import { BURN_STRENGTH_LEVELS, controls } from "./game/controls.svelte";
   import BurnButton from "./ui/BurnButton.svelte";
+  import BurnStrengthButton from "./ui/BurnStrengthButton.svelte";
   import Hud from "./ui/Hud.svelte";
 
   const state = createGameState(LEVEL_1);
@@ -32,8 +34,13 @@
   <Hud />
   <button class="reset" onclick={reset}>Reset</button>
   <div class="controls">
-    <BurnButton label="Retro" burnValue={-1} game={state} />
-    <BurnButton label="Pro" burnValue={1} game={state} />
+    <div class="burn-strength-label">Burn ×{BURN_STRENGTH_LEVELS[controls.burnStrengthIndex]}</div>
+    <div class="burn-row">
+      <BurnStrengthButton delta={-1} label="−" />
+      <BurnButton label="Retro" burnValue={-1} game={state} />
+      <BurnButton label="Pro" burnValue={1} game={state} />
+      <BurnStrengthButton delta={1} label="+" />
+    </div>
   </div>
 </main>
 
@@ -69,8 +76,22 @@
     left: 0;
     right: 0;
     display: flex;
-    justify-content: center;
-    gap: 2rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 2rem;
+  }
+
+  .burn-strength-label {
+    color: #e2e8f0;
+    font-family: system-ui, sans-serif;
+    font-size: 0.85rem;
+  }
+
+  .burn-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
   }
 </style>

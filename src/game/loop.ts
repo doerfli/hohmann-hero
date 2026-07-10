@@ -1,10 +1,11 @@
-import { DT, MAX_STEPS_PER_FRAME } from "../sim/constants";
+import { DT, FUEL_RATE, MAX_STEPS_PER_FRAME, THRUST_ACCEL } from "../sim/constants";
 import { stepShip } from "../sim/integrator";
 import type { CanvasView } from "../render/canvas";
 import { renderFrame } from "../render/draw";
 import { checkRendezvous } from "./rendezvous";
 import type { GameState } from "./state";
 import { hud } from "./hud.svelte";
+import { BURN_STRENGTH_LEVELS, controls } from "./controls.svelte";
 
 // A single frame's real elapsed time is clamped before being multiplied by
 // warp, so a backgrounded tab can't produce one giant catch-up burst.
@@ -23,9 +24,17 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
     if (state.phase === "playing") {
       accumulator += (realElapsedMs / 1000) * state.warpMultiplier;
 
+      const strengthMultiplier = BURN_STRENGTH_LEVELS[controls.burnStrengthIndex];
+
       let steps = 0;
       while (accumulator >= DT && steps < MAX_STEPS_PER_FRAME) {
-        state.ship = stepShip(state.ship, DT, state.burnSign);
+        state.ship = stepShip(
+          state.ship,
+          DT,
+          state.burnSign,
+          THRUST_ACCEL * strengthMultiplier,
+          FUEL_RATE * strengthMultiplier,
+        );
         state.t += DT;
         accumulator -= DT;
         steps++;

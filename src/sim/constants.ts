@@ -1,7 +1,7 @@
 // Reference tuning point: a comfortable mid-screen circular orbit should
 // have a period of a few seconds at 1x warp (per the game spec, §15).
 const REFERENCE_ORBIT_RADIUS = 150;
-const REFERENCE_ORBIT_PERIOD = 8; // seconds (doubled to halve circular orbit speeds)
+const REFERENCE_ORBIT_PERIOD = 16; // seconds (doubled again — still felt too fast for a first playthrough)
 
 // GM of the planet, derived so a circular orbit at REFERENCE_ORBIT_RADIUS has
 // period REFERENCE_ORBIT_PERIOD: T = 2*pi*sqrt(r^3/mu) => mu = 4*pi^2*r^3/T^2
@@ -18,12 +18,16 @@ export const MAX_STEPS_PER_FRAME = 2000;
 
 // Cap on how many points the forward predictor will trace when an orbit
 // can't be closed within a reasonable number of steps (e.g. near-escape).
-export const MAX_PREVIEW_STEPS = 2000;
+// Derived from REFERENCE_ORBIT_PERIOD (not a bare number) so it scales
+// automatically if orbital speed is retuned: six reference periods covers
+// (via Kepler's third law) orbits out to roughly 3x the reference radius,
+// well beyond anything reachable with Level 1's fuel budget.
+export const MAX_PREVIEW_STEPS = Math.ceil((REFERENCE_ORBIT_PERIOD * 6) / DT);
 
 export const PLANET_RADIUS = 30;
 
 // Acceleration applied while a burn button is held, along/against velocity.
-export const THRUST_ACCEL = 25;
+export const THRUST_ACCEL = 18.75;
 
 // Fuel consumed per second of a burn being held.
 export const FUEL_RATE = 20;

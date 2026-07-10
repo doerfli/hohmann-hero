@@ -50,10 +50,10 @@ function drawTargetOrbit(view: CanvasView, state: GameState): void {
   ctx.save();
   ctx.beginPath();
   ctx.arc(center.x, center.y, state.level.targetOrbit.radius * view.getScale(), 0, Math.PI * 2);
-  ctx.setLineDash([2, 6]);
+  ctx.setLineDash([3, 7]);
   ctx.strokeStyle = COLORS.targetOrbit;
   ctx.globalAlpha = 0.6;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.5;
   ctx.stroke();
   ctx.restore();
 }
@@ -62,10 +62,10 @@ function drawShipTrace(view: CanvasView, points: ReturnType<typeof tracePreview>
   if (points.length < 2) return;
   const { ctx } = view;
   ctx.save();
-  ctx.setLineDash(burning ? [1, 5] : [1, 9]);
+  ctx.setLineDash(burning ? [2, 6] : [2, 10]);
   ctx.strokeStyle = burning ? COLORS.shipTraceBurning : COLORS.shipTrace;
   ctx.globalAlpha = burning ? 0.9 : 0.5;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   const first = view.worldToScreen(points[0]);
   ctx.moveTo(first.x, first.y);
@@ -154,7 +154,7 @@ function drawShip(view: CanvasView, state: GameState): void {
       y: state.ship.pos.y + dir.y * 20,
     });
     ctx.strokeStyle = COLORS.ship;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
     ctx.lineTo(tip.x, tip.y);
@@ -169,7 +169,7 @@ function drawTarget(view: CanvasView, state: GameState): void {
   const p = view.worldToScreen(pos);
   ctx.save();
   ctx.strokeStyle = COLORS.target;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   const r = 6;
   ctx.beginPath();
   ctx.moveTo(p.x - r, p.y - r);

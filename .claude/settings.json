@@ -11,7 +11,12 @@
       "Bash(git -C /workspace status)",
       "Bash(bunx --bun node /tmp/claude-1000/-workspace/d16b1efc-fe0c-435a-97e6-2eba27246813/scratchpad/drive.mjs)",
       "Bash(bunx --bun node /tmp/claude-1000/-workspace/d16b1efc-fe0c-435a-97e6-2eba27246813/scratchpad/transfer.mjs)",
-      "Bash(curl -sf http://localhost:5183)"
+      "Bash(curl -sf http://localhost:5183)",
+      "Bash(mise --version)",
+      "Bash(mise ls *)",
+      "Bash(mise which *)",
+      "Bash(mise exec *)",
+      "Bash(node /tmp/claude-1000/-workspace/d16b1efc-fe0c-435a-97e6-2eba27246813/scratchpad/strength.mjs)"
     ]
   }
 }

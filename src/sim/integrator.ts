@@ -37,22 +37,24 @@ export function stepShip(
   s: ShipState,
   dt: number,
   burnSign: BurnSign,
+  thrustAccel: number = THRUST_ACCEL,
+  fuelRate: number = FUEL_RATE,
 ): ShipState {
-  const thrustAccel = burnSign * THRUST_ACCEL;
+  const signedThrustAccel = burnSign * thrustAccel;
 
   const dirNow = burnSign === 0 ? null : normalize(s.vel);
-  const aNow = acceleration(s.pos, dirNow, thrustAccel);
+  const aNow = acceleration(s.pos, dirNow, signedThrustAccel);
 
   const velHalf = add(s.vel, scale(aNow, dt / 2));
   const posNew = add(s.pos, scale(velHalf, dt));
 
   const dirHalf = burnSign === 0 ? null : normalize(velHalf);
-  const aNew = acceleration(posNew, dirHalf, thrustAccel);
+  const aNew = acceleration(posNew, dirHalf, signedThrustAccel);
   const velNew = add(velHalf, scale(aNew, dt / 2));
 
   return {
     pos: posNew,
     vel: velNew,
-    fuel: burnSign === 0 ? s.fuel : Math.max(0, s.fuel - FUEL_RATE * dt),
+    fuel: burnSign === 0 ? s.fuel : Math.max(0, s.fuel - fuelRate * dt),
   };
 }

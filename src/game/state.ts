@@ -7,7 +7,8 @@ import type { Phase } from "./rendezvous";
  * this every physics sub-step; the UI only reads from it (for the HUD) and
  * writes player intent (burnSign, warpMultiplier, reset) into it. Framework
  * reactivity never drives this object directly — see game/hud.svelte.ts for
- * the small reactive slice the HUD actually binds to.
+ * the small reactive slice the HUD reads, and game/controls.svelte.ts for
+ * the reactive slice player-control widgets (like burn strength) share.
  */
 export interface GameState {
   level: Level;

@@ -49,9 +49,68 @@ Goal per the specs: prove the physics feels right, with no HUD framework, no tim
 
 **Manual/browser verification** (headless Chromium via Playwright, screenshots inspected, no console errors): warp stepper cycles 1→5→25→100 and back correctly (after the frame-lag fix above), and snaps to ×1 the instant a burn starts; all four levels render at the correct scale with sane HUD numbers (phase angle, gap, closest approach) when switched to via the level-select strip; locked levels are genuinely unclickable on a fresh save. Did not script an exact rendezvous win end-to-end in-browser (per the Phase 1 note, nailing that timing via scripted events is imprecise and is the actual gameplay skill) — win/scoring/persistence correctness instead relies on the unit tests above plus a read-through of `loop.ts`'s win-transition wiring.
 
-## Phase 3 — not started
+## Phase 3 — planned
 
-- Extend `sim/target.ts` to full Kepler propagation for eccentric target orbits (the module already documents this as its extension point).
-- Multi-target levels, optional radial-burn control.
-- Audio (Web Audio API, unlocked on first tap), colorblind-safe palette, reduced-motion option, full level set (5–8 levels).
-- Docker packaging (multi-stage Bun → nginx build) per `hohmann-hero-stack.md` §11 — not needed until there's something worth shipping.
+Phase 3 is not one feature — it's several independent subsystems (spec §9/§16, stack §10). It's split into **6 sequential chunks**, each independently testable and shippable, ordered mechanics-first so gameplay is finished before polish wraps around it. **Radial burns are out of scope** (spec §4 marks them "optional later"), so the final set is **7 levels** (1–4 done + 5/6/7), not 8. Every chunk keeps the `sim / render / game / ui` seam and the two non-negotiables (symplectic fixed-timestep integrator; predictor and live sim share `stepShip`). Each chunk is its own branch/PR with tests green before the next, and updates this changelog when it lands.
+
+### Chunk 1 — Eccentric target orbits + Level 6
+
+Targets can ride elliptical orbits, propagated exactly (on-rails), behind the same `targetPosition`/`targetVelocity` shape everything already consumes.
+
+- **New `src/sim/kepler.ts`** (pure, tested): `solveKepler(M, e)` — Newton–Raphson for eccentric anomaly `E` from mean anomaly `M`; and `keplerState(orbit, t)` → `{pos, vel}`. Mean motion `n = sqrt(MU/a³)`; `M = M0 + n·t`; `r = a(1 − e·cos E)`; position in the orbital frame rotated by `argPeriapsis`; velocity from the analytic `Ė` derivative (not finite differences).
+- **`src/sim/target.ts`**: discriminated union `TargetOrbit = CircularOrbit | KeplerOrbit` (`KeplerOrbit = { kind: "kepler", a, e, argPeriapsis, meanAnomaly0 }`). `targetPosition`/`targetVelocity` dispatch on the tag — circular keeps its cheap analytic path; kepler calls `keplerState`. Preserves the existing extension-point contract.
+- **Ripple (type-only):** switch `CircularOrbit` references in `rendezvous.ts`, `closestApproach.ts`, `levels.ts` to `TargetOrbit`. No logic change.
+- **`src/render/draw.ts`**: draw an elliptical orbit guide (offset center + rotation) for a `KeplerOrbit`; optionally mark the target's peri/apoapsis.
+- **`src/game/levels.ts`**: add **Level 6 "Eccentric Target"** — geometry authored so rendezvous is achievable near peri/apoapsis (numeric tuning; verify with a scripted forward-sim). `levelWorldRadius` must use ellipse apoapsis `a(1+e)`.
+- **Tests (`test/sim/kepler.test.ts`):** solver converges + `M→E→M` round-trip; `e=0` matches the circular analytic path (continuity); position periodic over `2π/n`; energy/semi-major-axis constant along the path.
+
+### Chunk 2 — Multi-target levels + Level 7 "Milk Run"
+
+A level can require visiting several targets in sequence on one fuel budget.
+
+- **`src/game/levels.ts`**: `Level.targetOrbit` → `targets: TargetOrbit[]` (adapt Levels 1–6 to single-element arrays).
+- **`src/game/state.ts`**: `GameState` gains `currentTargetIndex` (reset by `resetGameState`).
+- **`src/game/rendezvous.ts`**: check against the *current* target; capture of a non-final target advances the index and stays `phase: "playing"`; `"won"` only on the last target. Return a distinct "captured, advance" signal for `loop.ts`.
+- **`src/game/loop.ts`**: on a non-final capture, advance `currentTargetIndex` (brief HUD/audio cue), fuel carries over; final capture wins as today.
+- **`src/render/draw.ts`** + **`src/ui/Hud.svelte`**: draw all remaining targets (current highlighted); HUD shows "Target 2 of 3"; closest-approach tracks the current target.
+- **`src/game/levels.ts`**: add **Level 7 "Milk Run"** — two targets in sequence.
+- **Tests:** advancement logic (win only after all captured; index advances per capture; fuel persists across targets).
+
+### Chunk 3 — Level 5 "Tight Budget" + level-set finalization
+
+Complete the 7-level set and its ordering/tuning. No engine work.
+
+- **`src/game/levels.ts`**: add **Level 5 "Tight Budget"** — an earlier geometry (Level 1 or 4) with a much smaller `fuelCapacity`, forcing a clean two-burn solution. Insert into `LEVELS` ahead of 6/7 and fix the final ordering + unlock chain (1→2→…→7).
+- **Tuning pass:** review `parBurns`/`parTime` and star thresholds (`game/scoring.ts`) across all 7 levels so 3 stars ≈ textbook solution with fuel to spare (spec §10).
+- **Tests:** extend `test/game/levels.test.ts` (7 unique ids, finite/positive fields, monotonic unlock chain).
+
+### Chunk 4 — Audio
+
+Soft thrust hum while burning, gentle chime on rendezvous (spec §12, stack §9).
+
+- **New `src/audio/audio.ts`** (kept out of `sim/`): lazy `AudioContext`, `resume()` on the first user gesture (first burn/pointerdown — mobile requirement). Thrust hum = oscillator/noise through a gain ramped up when `burnSign ≠ 0`, down on coast; rendezvous chime = short enveloped tone.
+- **New `src/game/settings.svelte.ts`** + extend `game/persistence.ts`: a persisted settings store (start with `muted`); reused by Chunk 5.
+- **Wire-up:** `loop.ts` (or a thin audio controller) reads `game.burnSign` for the hum and fires the chime on the win transition; **`src/ui/`** gets a mute toggle.
+- **Verification:** mostly manual/browser (hum tracks burns, chime on win, silent until first tap, mute persists). Unit-test any pure envelope/param helpers.
+
+### Chunk 5 — Accessibility
+
+Colorblind-safe palette + never color-alone + reduced-motion option (spec §13).
+
+- **Centralize colors** (new palette/theme module + CSS variables): replace hardcoded colors in `render/draw.ts` and `app.css`; ship-orbit vs target-orbit distinguished by **dash pattern + label**, not color alone.
+- **Reduced-motion:** add to the settings store (default from `prefers-reduced-motion`); when on, calm animated flourishes (static markers/preview dots, no pulsing).
+- **`src/ui/`**: small settings panel exposing mute + reduced-motion + (optional) palette.
+- **Verification:** manual/browser at phone sizes; check contrast and that orbits are distinguishable in grayscale.
+
+### Chunk 6 — Docker packaging
+
+Ship it — multi-stage Bun→nginx image (stack §11); the "something worth shipping" now exists.
+
+- Add **`Dockerfile`** (build stage `oven/bun:1.3-alpine` → `bun install --frozen-lockfile` → `bun run build`; runtime `nginx:1-alpine` serving `dist/`), **`docker/nginx.conf`** (asset caching + SPA fallback), **`.dockerignore`**, optional `HEALTHCHECK`. Copy the reference configs from stack §11.1–11.3.
+- **Verification:** `docker build -t hohmann-hero .` then `docker run --rm -p 8080:80 hohmann-hero`, open `http://localhost:8080`, confirm the game loads and plays.
+
+### Cross-cutting
+
+- Non-negotiables stay put: no new integrator; predictor keeps calling `stepShip` with `burnSign: 0`; time-warp stays sub-step-based. Eccentric targets are propagated analytically (on-rails), never integrated — so they can't drift.
+- The settings store is introduced in Chunk 4 and extended in Chunk 5 (one persisted object, versioned under the existing `hohmann-hero:v1` key or a sibling).
+- **Per-chunk verification:** `bun run test` green; `bunx tsc --noEmit -p tsconfig.json` and `bunx svelte-check --tsconfig ./tsconfig.json` clean; `bun run dev` + headless-Chromium screenshot check of the new feature, no console errors. Chunk 6 additionally runs the Docker build/run.

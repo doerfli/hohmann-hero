@@ -1,7 +1,8 @@
-import { DT, PLANET_RADIUS, SHIP_RENDER_RADIUS } from "../sim/constants";
+import { PLANET_RADIUS, SHIP_RENDER_RADIUS } from "../sim/constants";
+import { findClosestApproach } from "../sim/closestApproach";
 import { tracePreview } from "../sim/predictor";
-import { targetPosition, targetVelocity } from "../sim/target";
-import { distance, length, lengthSq, sub } from "../sim/vec2";
+import { targetPosition } from "../sim/target";
+import { length, lengthSq } from "../sim/vec2";
 import type { CanvasView } from "./canvas";
 import type { GameState } from "../game/state";
 import type { Vec2 } from "../sim/vec2";
@@ -99,25 +100,12 @@ function drawApsisMarkers(view: CanvasView, points: Vec2[]): void {
 }
 
 function drawClosestApproach(view: CanvasView, preview: ReturnType<typeof tracePreview>, state: GameState): void {
-  const { points, velocities } = preview;
-  if (points.length === 0) return;
-  let bestIndex = 0;
-  let bestDist = Infinity;
-  for (let i = 0; i < points.length; i++) {
-    const futureT = state.t + (i + 1) * DT;
-    const targetAtT = targetPosition(state.level.targetOrbit, futureT);
-    const d = distance(points[i], targetAtT);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIndex = i;
-    }
-  }
-  const bestT = state.t + (bestIndex + 1) * DT;
-  const relSpeed = length(sub(velocities[bestIndex], targetVelocity(state.level.targetOrbit, bestT)));
-  drawMarker(view, points[bestIndex], [
+  if (preview.points.length === 0) return;
+  const result = findClosestApproach(preview, state.level.targetOrbit, state.t);
+  drawMarker(view, preview.points[result.pointIndex], [
     "Closest approach",
-    `gap ${bestDist.toFixed(0)} u`,
-    `Δv ${relSpeed.toFixed(1)} u/s`,
+    `gap ${result.gap.toFixed(0)} u`,
+    `Δv ${result.relativeSpeed.toFixed(1)} u/s`,
   ]);
 }
 

@@ -34,13 +34,20 @@ Goal per the specs: prove the physics feels right, with no HUD framework, no tim
 
 ---
 
-## Phase 2 — not started
+## Phase 2 — done
 
-- Time-warp as sub-steps (1×/5×/25×/100×), with a UI control; force warp back to 1× the moment a burn starts (the plumbing for this already exists in `BurnButton.svelte`, just needs a warp control to reset).
-- Full Svelte HUD: fuel gauge (visual, not just text), phase-angle readout, closest-approach readout, warp indicator, reset button (reset button already exists in minimal form).
-- Fuel budget and fail states already exist structurally in `rendezvous.ts`/`levels.ts`; extend to tune per-level budgets.
-- Levels 2–4 as new entries in `game/levels.ts` (data only, per the existing `Level` type — no new code expected).
-- Star scoring + `localStorage` persistence, namespaced/versioned (`hohmann-hero:v1`).
+**Implemented:**
+
+- **Time-warp control**: `game/controls.svelte.ts` gained `WARP_LEVELS = [1, 5, 25, 100]`; `ui/WarpStepButton.svelte` steps through them. `BurnButton.svelte` already force-reset `game.warpMultiplier` to 1 on burn start (Phase 1 plumbing) — no change needed there. One real bug found and fixed during this phase: the stepper must compute its next value from `game.warpMultiplier` (the plain, synchronous `GameState` field), not from `hud.warpMultiplier` (the reactive HUD mirror, which only refreshes once per rendered frame) — otherwise two clicks inside one frame collapse into a single step. Display/disabled-state still reads from `hud.warpMultiplier`, since that's fine to lag a frame.
+- **Full HUD** (`ui/Hud.svelte`): visual fuel gauge bar, warp multiplier, phase-angle (degrees), live gap/relative-speed, and a separate predicted closest-approach gap/relative-speed. New `sim/orbitMath.ts::phaseAngle` and `sim/closestApproach.ts::findClosestApproach` (the latter extracted from logic that `render/draw.ts`'s on-canvas marker already computed inline, so canvas and HUD now share one implementation instead of two).
+- **Levels 2–4** added to `game/levels.ts`, each derived from the actual `MU`/`hohmannLeadAngle`/`circularSpeed` helpers (not placeholder numbers): Level 2 "Drop to Descend" (r=250→150, reverse Hohmann), Level 3 "Slow Down to Catch Up" (shared r=150 orbit, target 75° ahead, phasing-loop solution), Level 4 "Launch Window" (Level 1's geometry with the target at the opposite synodic phase, forcing a time-warp wait). `Level` gained `parBurns`/`parTime` scoring-reference fields.
+- **Level select**: a minimal top-of-screen strip (`ui/LevelSelect.svelte`) — locked levels disabled, current level highlighted, star count shown once earned. Switching levels needed the canvas view's world-radius to be re-fittable (`render/canvas.ts::setWorldRadius`, plus `game/levels.ts::levelWorldRadius`, which fixed a latent bug where the view only ever sized itself to the target orbit radius — fine by coincidence in Level 1, wrong for Level 2 where the ship's own starting orbit is larger).
+- **Star scoring + persistence**: pure `game/scoring.ts` (`computeStars`, three independent axes — fuel/burns/time — final score is the worst of the three) and `game/persistence.ts` (`hohmann-hero:v1` in `localStorage`, versioned with a fresh-default fallback on any parse/version mismatch). `game/progress.svelte.ts` wires a win to scoring + persistence + unlocking the next level; `game/summary.svelte.ts` + `ui/LevelSummary.svelte` show the one-shot end-of-level stars/fuel/burns/time.
+- `GameState` gained `burnCount` (incremented in `loop.ts` on each 0→non-zero `burnSign` transition) and `switchLevel`. `loop.ts` also fixed a pre-existing cadence bug: `hud.gap`/`hud.relativeSpeed` were being written every physics sub-step instead of once per frame, contradicting `hud.svelte.ts`'s own documented contract.
+
+**Tests** (`bun run test`, 22 passing, up from 5): new `test/sim/orbitMath.test.ts` (phase-angle wraparound), `test/sim/closestApproach.test.ts` (known-geometry scan correctness + empty-trace sentinel), `test/game/scoring.test.ts` (axis-boundary table tests), `test/game/persistence.test.ts` (pure `recordResult` transform — best-score tie-breaking, unlock propagation), `test/game/levels.test.ts` (sanity: 4 unique ids, finite/positive fields). All Phase 1 tests still pass unmodified.
+
+**Manual/browser verification** (headless Chromium via Playwright, screenshots inspected, no console errors): warp stepper cycles 1→5→25→100 and back correctly (after the frame-lag fix above), and snaps to ×1 the instant a burn starts; all four levels render at the correct scale with sane HUD numbers (phase angle, gap, closest approach) when switched to via the level-select strip; locked levels are genuinely unclickable on a fresh save. Did not script an exact rendezvous win end-to-end in-browser (per the Phase 1 note, nailing that timing via scripted events is imprecise and is the actual gameplay skill) — win/scoring/persistence correctness instead relies on the unit tests above plus a read-through of `loop.ts`'s win-transition wiring.
 
 ## Phase 3 — not started
 

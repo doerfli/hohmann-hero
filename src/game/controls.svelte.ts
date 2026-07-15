@@ -4,6 +4,13 @@
 export const BURN_STRENGTH_LEVELS = [0.25, 0.5, 1, 2];
 const DEFAULT_BURN_STRENGTH_INDEX = 2; // -> 1x
 
+// Time-warp multipliers (spec §15). Unlike burn strength, warp has no
+// reactive index of its own here — see ui/WarpStepButton.svelte, which
+// derives the current step from hud.warpMultiplier instead, since
+// BurnButton.svelte can reset GameState.warpMultiplier out from under a
+// separately-tracked index at any time.
+export const WARP_LEVELS = [1, 2, 3, 5, 10, 25];
+
 /**
  * Reactive player-control state: a UI preference (not physics state), so it
  * lives outside GameState and isn't touched by resetGameState. It's $state

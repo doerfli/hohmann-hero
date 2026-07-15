@@ -11,4 +11,10 @@ export const hud = $state({
   fuelCapacity: 100,
   gap: 0,
   relativeSpeed: 0,
+  warpMultiplier: 1,
+  /** Ship-to-target angular separation (radians), see sim/orbitMath.ts's phaseAngle. */
+  phaseAngle: 0,
+  /** Predicted gap/relative-speed at the trace's closest-approach point — distinct from the live gap/relativeSpeed above. */
+  closestGap: 0,
+  closestRelativeSpeed: 0,
 });

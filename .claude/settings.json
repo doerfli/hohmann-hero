@@ -25,7 +25,10 @@
       "Bash(docker build *)",
       "Bash(docker rm *)",
       "Bash(docker run *)",
-      "mcp__plugin_context-mode_context-mode__ctx_execute"
+      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "Bash(bun --version)",
+      "Bash(cat mise.toml; echo \"---\"; cat .bun-version; echo \"---which---\"; which mise bun node 2>&1; echo \"---mise bin---\"; ls ~/.local/share/mise/shims 2>/dev/null | head; mise --version 2>&1 | head -1)",
+      "Read(//home/vscode/.local/share/mise/shims/**)"
     ]
   }
 }

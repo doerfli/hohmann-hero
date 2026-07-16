@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # JavaScript deps — package.json / bun.lock live in the npm ecosystem
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    groups:
+      # One PR for routine minor/patch bumps to cut review noise
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions used in the workflows above
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  # Base images referenced in the Dockerfile (oven/bun, nginx)
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly

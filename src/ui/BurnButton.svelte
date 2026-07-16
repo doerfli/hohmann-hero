@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GameState } from "../game/state";
   import type { BurnSign } from "../sim/integrator";
+  import { audio } from "../audio/audio";
 
   interface Props {
     label: string;
@@ -13,6 +14,8 @@
 
   function start(e: PointerEvent) {
     e.preventDefault();
+    // First user gesture doubles as the audio-unlock point (mobile requirement).
+    audio.unlock();
     active = true;
     game.burnSign = burnValue;
     // Per spec: burning always drops warp back to 1x so the player can't overshoot.

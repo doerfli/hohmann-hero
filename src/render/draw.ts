@@ -6,19 +6,14 @@ import { length, lengthSq } from "../sim/vec2";
 import type { CanvasView } from "./canvas";
 import type { GameState } from "../game/state";
 import type { Vec2 } from "../sim/vec2";
+import { PALETTE as COLORS } from "./palette";
 
-const COLORS = {
-  background: "#0b0f1a",
-  planet: "#4a5568",
-  targetOrbit: "#f6ad55",
-  shipTrace: "#63b3ed",
-  shipTraceBurning: "#90cdf4",
-  ship: "#e2e8f0",
-  target: "#f6ad55",
-  marker: "#a0aec0",
-};
-
-export function renderFrame(view: CanvasView, state: GameState): void {
+/**
+ * @param reducedMotion when true, calms animated flourishes — currently the
+ * burning-trace "shimmer" (the dash/alpha that flips as the player taps a
+ * burn) is held to a single steady style. New flourishes should respect it too.
+ */
+export function renderFrame(view: CanvasView, state: GameState, reducedMotion = false): void {
   const { ctx } = view;
   const { width, height } = view.getSize();
 
@@ -29,7 +24,7 @@ export function renderFrame(view: CanvasView, state: GameState): void {
   drawPlanet(view);
   drawTargetOrbit(view, state);
   const preview = tracePreview(state.ship);
-  drawShipTrace(view, preview.points, state.burnSign !== 0);
+  drawShipTrace(view, preview.points, state.burnSign !== 0 && !reducedMotion);
   drawApsisMarkers(view, preview.points);
   drawClosestApproach(view, preview, state);
   drawShip(view, state);

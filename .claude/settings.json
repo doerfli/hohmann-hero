@@ -21,7 +21,11 @@
       "Bash(command -v mise)",
       "Read(//home/vscode/.local/share/mise/installs/**)",
       "Bash(find / -maxdepth 6 -iname \"bun\" -type f)",
-      "Bash(command -v chromium-cli)"
+      "Bash(command -v chromium-cli)",
+      "Bash(docker build *)",
+      "Bash(docker rm *)",
+      "Bash(docker run *)",
+      "mcp__plugin_context-mode_context-mode__ctx_execute"
     ]
   }
 }

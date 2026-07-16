@@ -119,7 +119,29 @@ export const LEVEL_4: Level = {
   parTime: 27,
 };
 
-export const LEVELS: Level[] = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4];
+// Level 1's exact geometry, but a fraction of the fuel — the "tight budget"
+// level (spec §9), isolating fuel discipline. An ideal two-burn Hohmann from
+// r=150 to r=250 costs ~13.9 fuel; a capacity of 38 leaves a clean run above
+// the 60% mark (3-star fuel rating) yet punishes sloppy corrections and makes
+// a spray-and-pray solution simply run dry.
+const LEVEL_5_FUEL_CAPACITY = 38;
+
+export const LEVEL_5: Level = {
+  id: "level-5",
+  name: "Tight Budget",
+  shipStart: shipOnCircularOrbit(LEVEL_1_SHIP_RADIUS, 0, LEVEL_5_FUEL_CAPACITY),
+  targetOrbit: {
+    radius: LEVEL_1_TARGET_RADIUS,
+    startAngle: hohmannLeadAngle(LEVEL_1_SHIP_RADIUS, LEVEL_1_TARGET_RADIUS),
+  },
+  captureRadius: CAPTURE_RADIUS,
+  speedThreshold: SPEED_THRESHOLD,
+  fuelCapacity: LEVEL_5_FUEL_CAPACITY,
+  parBurns: 2,
+  parTime: 13,
+};
+
+export const LEVELS: Level[] = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5];
 
 /** World radius (with margin) the canvas view must fit — the larger of the ship's starting orbit and the target orbit. */
 export function levelWorldRadius(level: Level): number {

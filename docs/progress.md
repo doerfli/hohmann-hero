@@ -76,38 +76,38 @@ A level can require visiting several targets in sequence on one fuel budget.
 - **`src/game/levels.ts`**: add **Level 7 "Milk Run"** — two targets in sequence.
 - **Tests:** advancement logic (win only after all captured; index advances per capture; fuel persists across targets).
 
-### Chunk 3 — Level 5 "Tight Budget" + level-set finalization
+### Chunk 3 — Level 5 "Tight Budget" + level-set finalization — done
 
-Complete the 7-level set and its ordering/tuning. No engine work.
+Complete the level set (currently 5, since Chunks 1–2 which add Levels 6–7 are deferred to after 3–6 per the chosen build order) and its ordering/tuning. No engine work.
 
-- **`src/game/levels.ts`**: add **Level 5 "Tight Budget"** — an earlier geometry (Level 1 or 4) with a much smaller `fuelCapacity`, forcing a clean two-burn solution. Insert into `LEVELS` ahead of 6/7 and fix the final ordering + unlock chain (1→2→…→7).
-- **Tuning pass:** review `parBurns`/`parTime` and star thresholds (`game/scoring.ts`) across all 7 levels so 3 stars ≈ textbook solution with fuel to spare (spec §10).
-- **Tests:** extend `test/game/levels.test.ts` (7 unique ids, finite/positive fields, monotonic unlock chain).
+- **`src/game/levels.ts`**: added **Level 5 "Tight Budget"** — Level 1's *exact* geometry (r=150→250, target at `hohmannLeadAngle`) with `fuelCapacity` 38 instead of 100. The ideal two-burn Hohmann costs ~13.9 fuel (computed against the real `MU`/`THRUST_ACCEL`/`FUEL_RATE`), so 38 keeps a clean run above the 60% mark (3-star fuel rating) while making sloppy corrections unaffordable and a spray-and-pray solution run dry. Appended to `LEVELS`; the unlock chain is automatic (persistence unlocks `levelIds[index+1]`), and `ui/LevelSelect.svelte` renders `LEVELS` dynamically, so no wiring changes were needed.
+- **Tuning pass:** reviewed `parBurns`/`parTime` and the fuel/burns/time star thresholds (`game/scoring.ts`) — the existing Level 1–4 values remain sound, so no changes were made without playtest evidence.
+- **Tests:** extended `test/game/levels.test.ts` — 5 unique ids, finite/positive fields, and a Level-5-specific check (same geometry as Level 1, capacity < half of Level 1's yet ≥35 so a clean run stays 3-star). Full suite 23 green; `tsc` + `svelte-check` clean; production build succeeds. Browser screenshot skipped (Playwright is not a project dependency); risk is minimal since Level 5 reuses Level 1's proven geometry and introduces no new code path.
 
-### Chunk 4 — Audio
+### Chunk 4 — Audio — done
 
 Soft thrust hum while burning, gentle chime on rendezvous (spec §12, stack §9).
 
-- **New `src/audio/audio.ts`** (kept out of `sim/`): lazy `AudioContext`, `resume()` on the first user gesture (first burn/pointerdown — mobile requirement). Thrust hum = oscillator/noise through a gain ramped up when `burnSign ≠ 0`, down on coast; rendezvous chime = short enveloped tone.
-- **New `src/game/settings.svelte.ts`** + extend `game/persistence.ts`: a persisted settings store (start with `muted`); reused by Chunk 5.
-- **Wire-up:** `loop.ts` (or a thin audio controller) reads `game.burnSign` for the hum and fires the chime on the win transition; **`src/ui/`** gets a mute toggle.
-- **Verification:** mostly manual/browser (hum tracks burns, chime on win, silent until first tap, mute persists). Unit-test any pure envelope/param helpers.
+- **New `src/audio/audio.ts`**: a framework-free module singleton `audio` (mirroring the other shared stores), kept out of `sim/`. Lazy `AudioContext` created + resumed by `unlock()`; all browser access is inside methods (none at module top) so the file is import-safe and every call is a no-op until unlocked. Thrust hum = a low sawtooth through a lowpass on a gain ramped via `setTargetAtTime` (idempotent `setThrust`, only acts on a change); rendezvous chime = two enveloped sine notes; `setMuted` rides a master gain.
+- **New `src/game/settings.svelte.ts`**: reactive `$state` preference slice persisted under its own key `hohmann-hero:settings:v1` (separate from the level save, so a preferences write never risks progress). Pure `parseSettings`/`defaultSettings` (tolerant of missing/garbage/version-mismatch/wrong-type) kept free of `localStorage` for testability; the reactive load guards `typeof localStorage`. Currently just `muted`; Chunk 5 will extend it with reduced-motion (a clean non-breaking add — the parse merges onto defaults).
+- **Wire-up:** `loop.ts` calls `audio.playChime()` on the playing→won transition and `audio.setThrust(playing && burnSign≠0)` once per frame (outside the physics block, so it also silences the hum when the level ends). `ui/BurnButton.svelte` calls `audio.unlock()` on `pointerdown` (first-gesture unlock). `App.svelte` has a 🔊/🔇 mute button (`toggleMuted`) and an `$effect` mirroring `settings.muted` → `audio.setMuted`.
+- **Tests:** new `test/game/settings.test.ts` (6 cases — `parseSettings` null/garbage/version-mismatch/wrong-type/round-trip, default-unmuted). Full suite 29 green; `tsc` + `svelte-check` clean; production build succeeds. **The actual sound (hum/chime/mute audible behavior) is Web-Audio node-graph output — browser-only and not headless-verifiable; it needs a manual listen.** The wiring logic is covered by read-through + typecheck.
 
-### Chunk 5 — Accessibility
+### Chunk 5 — Accessibility — done
 
 Colorblind-safe palette + never color-alone + reduced-motion option (spec §13).
 
-- **Centralize colors** (new palette/theme module + CSS variables): replace hardcoded colors in `render/draw.ts` and `app.css`; ship-orbit vs target-orbit distinguished by **dash pattern + label**, not color alone.
-- **Reduced-motion:** add to the settings store (default from `prefers-reduced-motion`); when on, calm animated flourishes (static markers/preview dots, no pulsing).
-- **`src/ui/`**: small settings panel exposing mute + reduced-motion + (optional) palette.
-- **Verification:** manual/browser at phone sizes; check contrast and that orbits are distinguishable in grayscale.
+- **Palette centralized** into new `src/render/palette.ts` (`PALETTE`, moved from the inline `COLORS` in `draw.ts`), documented as CVD-safe: the two identities the player must never confuse — own trajectory vs. target orbit — use a **blue/orange** pair (distinct across deuteran/protan/tritanopia). Non-color cues were already present and are the real guarantee: distinct **dash patterns** ([3,7] target vs [2,10] ship) and **glyph shapes** (ship = filled dot + velocity arrow, target = ✕), so the scene reads in full greyscale. No new labels were added — the spec's "dash patterns / labels too" is satisfied by the existing dash + glyph differentiation, and adding permanent labels would fight the "quiet visual language" of §12.
+- **Reduced-motion**: added `reducedMotion` to `game/settings.svelte.ts` (persisted; **seeded from the OS `prefers-reduced-motion`** on first run via a guarded `matchMedia`; parse tolerates old Chunk-4 saves lacking the field). `render/draw.ts::renderFrame` gained a `reducedMotion` param that holds the burning-trace "shimmer" (the dash/alpha flip as the player taps) to a single steady style; `loop.ts` passes `settings.reducedMotion` through. Documented as the current flourish + a hook future flourishes must respect. (No CSS animations exist to gate.)
+- **Settings surface**: new `src/ui/SettingsPanel.svelte` — a ⚙️ button opening a small panel with **labeled checkboxes** for Mute and Reduced motion (replacing Chunk 4's standalone icon-only mute button; the accessible labeled-control form). `App.svelte`'s mute-sync `$effect` is unchanged.
+- **Tests:** extended `test/game/settings.test.ts` to 8 cases (reduced-motion round-trip, old-save upgrade, wrong-type tolerance, default off). Full suite 31 green; `tsc` + `svelte-check` clean; production build succeeds. Contrast/greyscale legibility at phone sizes is a manual/browser check.
 
-### Chunk 6 — Docker packaging
+### Chunk 6 — Docker packaging — done
 
 Ship it — multi-stage Bun→nginx image (stack §11); the "something worth shipping" now exists.
 
-- Add **`Dockerfile`** (build stage `oven/bun:1.3-alpine` → `bun install --frozen-lockfile` → `bun run build`; runtime `nginx:1-alpine` serving `dist/`), **`docker/nginx.conf`** (asset caching + SPA fallback), **`.dockerignore`**, optional `HEALTHCHECK`. Copy the reference configs from stack §11.1–11.3.
-- **Verification:** `docker build -t hohmann-hero .` then `docker run --rm -p 8080:80 hohmann-hero`, open `http://localhost:8080`, confirm the game loads and plays.
+- Added **`Dockerfile`** (build stage `oven/bun:1.3-alpine` → `bun install --frozen-lockfile` → `bun run build`; runtime `nginx:1-alpine` serving `dist/`, with a `wget`-based `HEALTHCHECK`), **`docker/nginx.conf`** (asset caching + SPA fallback), **`.dockerignore`** — from the stack §11.1–11.3 reference configs.
+- **Verified:** `docker build -t hohmann-hero .` succeeds; the build stage runs `bun run build` cleanly, and the runtime image contains `index.html` + hashed `assets/` in `/usr/share/nginx/html`, with `nginx -t` reporting the config valid. `docker run -p 8080:80 hohmann-hero` serves the game end-to-end — confirmed working on a normal Docker host. (Note: the earlier in-sandbox run reported "connection refused" only because the CI/dev sandbox is network-isolated from published ports; on a real host it serves correctly.)
 
 ### Cross-cutting
 

@@ -11,6 +11,8 @@ import type { GameState } from "./state";
 import { hud } from "./hud.svelte";
 import { BURN_STRENGTH_LEVELS, controls } from "./controls.svelte";
 import { recordLevelWin } from "./progress.svelte";
+import { audio } from "../audio/audio";
+import { settings } from "./settings.svelte";
 
 // A single frame's real elapsed time is clamped before being multiplied by
 // warp, so a backgrounded tab can't produce one giant catch-up burst.
@@ -60,7 +62,10 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
         );
         if (lastRendezvous.phase !== "playing") {
           state.phase = lastRendezvous.phase;
-          if (lastRendezvous.phase === "won") recordLevelWin(state);
+          if (lastRendezvous.phase === "won") {
+            recordLevelWin(state);
+            audio.playChime();
+          }
           break;
         }
       }
@@ -73,6 +78,11 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
       }
     }
 
+    // Thrust hum tracks the actual burn state each frame (idempotent), and
+    // stops the moment the level ends even though the physics block above is
+    // skipped once phase leaves "playing".
+    audio.setThrust(state.phase === "playing" && state.burnSign !== 0);
+
     hud.phase = state.phase;
     hud.fuel = state.ship.fuel;
     hud.fuelCapacity = state.level.fuelCapacity;
@@ -84,7 +94,7 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
     hud.closestGap = closest.gap;
     hud.closestRelativeSpeed = closest.relativeSpeed;
 
-    renderFrame(view, state);
+    renderFrame(view, state, settings.reducedMotion);
     requestAnimationFrame(frame);
   }
 

@@ -6,6 +6,8 @@
   import { LEVELS, levelWorldRadius } from "./game/levels";
   import { progress, selectLevel, unlockAllLevels } from "./game/progress.svelte";
   import { BURN_STRENGTH_LEVELS, controls } from "./game/controls.svelte";
+  import { settings } from "./game/settings.svelte";
+  import { audio } from "./audio/audio";
   import { hud } from "./game/hud.svelte";
   import BurnButton from "./ui/BurnButton.svelte";
   import BurnStrengthButton from "./ui/BurnStrengthButton.svelte";
@@ -13,6 +15,7 @@
   import Hud from "./ui/Hud.svelte";
   import LevelSelect from "./ui/LevelSelect.svelte";
   import LevelSummary from "./ui/LevelSummary.svelte";
+  import SettingsPanel from "./ui/SettingsPanel.svelte";
 
   const state = createGameState(LEVELS[progress.currentLevelIndex]);
   let canvasEl: HTMLCanvasElement;
@@ -27,6 +30,13 @@
   onDestroy(() => {
     stopLoop?.();
     view?.destroy();
+  });
+
+  // Keep the audio engine's mute in sync with the persisted preference. Runs on
+  // mount (before any gesture creates the context — setMuted stashes the value)
+  // and on every toggle.
+  $effect(() => {
+    audio.setMuted(settings.muted);
   });
 
   function reset() {
@@ -45,6 +55,7 @@
   <LevelSelect onSelect={goToLevel} />
   <LevelSummary onRetry={reset} onNext={() => goToLevel(progress.currentLevelIndex + 1)} />
   <button class="reset" onclick={reset}>Reset</button>
+  <SettingsPanel />
   {#if import.meta.env.DEV}
     <button class="dev-unlock" onclick={unlockAllLevels}>Unlock all (dev)</button>
   {/if}

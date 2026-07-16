@@ -1,6 +1,6 @@
 import { DT } from "./constants";
 import type { PreviewTrace } from "./predictor";
-import { targetPosition, targetVelocity, type CircularOrbit } from "./target";
+import { targetPosition, targetVelocity, type TargetOrbit } from "./target";
 import { distance, length, sub } from "./vec2";
 
 export interface ClosestApproachResult {
@@ -18,7 +18,7 @@ export interface ClosestApproachResult {
  */
 export function findClosestApproach(
   preview: PreviewTrace,
-  targetOrbit: CircularOrbit,
+  targetOrbit: TargetOrbit,
   tNow: number,
   dt: number = DT,
 ): ClosestApproachResult {

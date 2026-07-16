@@ -17,4 +17,7 @@ export const hud = $state({
   /** Predicted gap/relative-speed at the trace's closest-approach point — distinct from the live gap/relativeSpeed above. */
   closestGap: 0,
   closestRelativeSpeed: 0,
+  /** Which target the player is pursuing (0-based) and how many the level has — drives the "Target N of M" readout on milk-run levels. */
+  targetIndex: 0,
+  targetCount: 1,
 });

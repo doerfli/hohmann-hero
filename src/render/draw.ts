@@ -22,13 +22,13 @@ export function renderFrame(view: CanvasView, state: GameState, reducedMotion = 
   ctx.fillRect(0, 0, width, height);
 
   drawPlanet(view);
-  drawTargetOrbit(view, state);
+  drawTargetOrbits(view, state);
   const preview = tracePreview(state.ship);
   drawShipTrace(view, preview.points, state.burnSign !== 0 && !reducedMotion);
   drawApsisMarkers(view, preview.points);
   drawClosestApproach(view, preview, state);
   drawShip(view, state);
-  drawTarget(view, state);
+  drawTargets(view, state);
 }
 
 function drawPlanet(view: CanvasView): void {
@@ -40,16 +40,43 @@ function drawPlanet(view: CanvasView): void {
   ctx.fill();
 }
 
-function drawTargetOrbit(view: CanvasView, state: GameState): void {
+/**
+ * Draw the orbit guide for every target still to be caught (from the current
+ * one onward). The current target is drawn at full strength; upcoming ones on a
+ * milk run are dimmed so the player's eye stays on the active leg.
+ */
+function drawTargetOrbits(view: CanvasView, state: GameState): void {
+  const { targets } = state.level;
+  for (let i = targets.length - 1; i >= state.currentTargetIndex; i--) {
+    drawOrbitGuide(view, targets[i], i === state.currentTargetIndex);
+  }
+}
+
+function drawOrbitGuide(view: CanvasView, orbit: GameState["level"]["targets"][number], current: boolean): void {
   const { ctx } = view;
-  const center = view.worldToScreen({ x: 0, y: 0 });
+  const scale = view.getScale();
   ctx.save();
   ctx.beginPath();
-  ctx.arc(center.x, center.y, state.level.targetOrbit.radius * view.getScale(), 0, Math.PI * 2);
+  if (orbit.kind === "kepler") {
+    // Ellipse: focus at the planet, geometric center offset by a·e toward
+    // apoapsis (opposite the periapsis direction). The canvas y-axis points
+    // down while the world's points up, so the world rotation argPeriapsis maps
+    // to a negated screen rotation.
+    const b = orbit.a * Math.sqrt(1 - orbit.e * orbit.e);
+    const centerWorld = {
+      x: -orbit.a * orbit.e * Math.cos(orbit.argPeriapsis),
+      y: -orbit.a * orbit.e * Math.sin(orbit.argPeriapsis),
+    };
+    const c = view.worldToScreen(centerWorld);
+    ctx.ellipse(c.x, c.y, orbit.a * scale, b * scale, -orbit.argPeriapsis, 0, Math.PI * 2);
+  } else {
+    const center = view.worldToScreen({ x: 0, y: 0 });
+    ctx.arc(center.x, center.y, orbit.radius * scale, 0, Math.PI * 2);
+  }
   ctx.setLineDash([3, 7]);
   ctx.strokeStyle = COLORS.targetOrbit;
-  ctx.globalAlpha = 0.6;
-  ctx.lineWidth = 2.5;
+  ctx.globalAlpha = current ? 0.6 : 0.25;
+  ctx.lineWidth = current ? 2.5 : 1.5;
   ctx.stroke();
   ctx.restore();
 }
@@ -96,7 +123,8 @@ function drawApsisMarkers(view: CanvasView, points: Vec2[]): void {
 
 function drawClosestApproach(view: CanvasView, preview: ReturnType<typeof tracePreview>, state: GameState): void {
   if (preview.points.length === 0) return;
-  const result = findClosestApproach(preview, state.level.targetOrbit, state.t);
+  const currentTarget = state.level.targets[state.currentTargetIndex];
+  const result = findClosestApproach(preview, currentTarget, state.t);
   drawMarker(view, preview.points[result.pointIndex], [
     "Closest approach",
     `gap ${result.gap.toFixed(0)} u`,
@@ -146,12 +174,31 @@ function drawShip(view: CanvasView, state: GameState): void {
   ctx.restore();
 }
 
-function drawTarget(view: CanvasView, state: GameState): void {
+/**
+ * Draw the marker for every target still to be caught. The current target shows
+ * its capture ring at full strength; upcoming ones on a milk run are dimmed and
+ * numbered so the player can see the run ahead without mistaking one for active.
+ */
+function drawTargets(view: CanvasView, state: GameState): void {
+  const { targets } = state.level;
+  for (let i = targets.length - 1; i >= state.currentTargetIndex; i--) {
+    drawTargetMarker(view, state, targets[i], i, i === state.currentTargetIndex);
+  }
+}
+
+function drawTargetMarker(
+  view: CanvasView,
+  state: GameState,
+  orbit: GameState["level"]["targets"][number],
+  index: number,
+  current: boolean,
+): void {
   const { ctx } = view;
-  const pos = targetPosition(state.level.targetOrbit, state.t);
+  const pos = targetPosition(orbit, state.t);
   const p = view.worldToScreen(pos);
   ctx.save();
   ctx.strokeStyle = COLORS.target;
+  ctx.globalAlpha = current ? 1 : 0.4;
   ctx.lineWidth = 3;
   const r = 6;
   ctx.beginPath();
@@ -161,9 +208,19 @@ function drawTarget(view: CanvasView, state: GameState): void {
   ctx.lineTo(p.x - r, p.y + r);
   ctx.stroke();
 
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, state.level.captureRadius * view.getScale(), 0, Math.PI * 2);
-  ctx.globalAlpha = 0.3;
-  ctx.stroke();
+  // The capture ring only makes sense for the target being pursued.
+  if (current) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, state.level.captureRadius * view.getScale(), 0, Math.PI * 2);
+    ctx.globalAlpha = 0.3;
+    ctx.stroke();
+  } else if (state.level.targets.length > 1) {
+    // Number the upcoming targets so the ordered milk run is legible.
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = COLORS.target;
+    ctx.font = "10px sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${index + 1}`, p.x + r + 3, p.y);
+  }
   ctx.restore();
 }

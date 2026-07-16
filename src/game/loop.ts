@@ -6,7 +6,7 @@ import { tracePreview } from "../sim/predictor";
 import { targetPosition } from "../sim/target";
 import type { CanvasView } from "../render/canvas";
 import { renderFrame } from "../render/draw";
-import { checkRendezvous, type RendezvousResult } from "./rendezvous";
+import { checkMultiRendezvous, type MultiRendezvousResult } from "./rendezvous";
 import type { GameState } from "./state";
 import { hud } from "./hud.svelte";
 import { BURN_STRENGTH_LEVELS, controls } from "./controls.svelte";
@@ -23,7 +23,7 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
   let lastTime = performance.now();
   let stopped = false;
   let prevBurnSign = state.burnSign;
-  let lastRendezvous: RendezvousResult | null = null;
+  let lastRendezvous: MultiRendezvousResult | null = null;
 
   function frame(now: number) {
     if (stopped) return;
@@ -53,13 +53,20 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
         accumulator -= DT;
         steps++;
 
-        lastRendezvous = checkRendezvous(
+        lastRendezvous = checkMultiRendezvous(
           state.ship,
-          state.level.targetOrbit,
+          state.level.targets,
+          state.currentTargetIndex,
           state.t,
           state.level.captureRadius,
           state.level.speedThreshold,
         );
+        // Intermediate capture on a milk run: advance to the next target,
+        // keep playing (fuel carries over), and sound the same rendezvous chime.
+        if (lastRendezvous.captured && lastRendezvous.phase === "playing") {
+          state.currentTargetIndex = lastRendezvous.currentTargetIndex;
+          audio.playChime();
+        }
         if (lastRendezvous.phase !== "playing") {
           state.phase = lastRendezvous.phase;
           if (lastRendezvous.phase === "won") {
@@ -83,14 +90,18 @@ export function startLoop(state: GameState, view: CanvasView): () => void {
     // skipped once phase leaves "playing".
     audio.setThrust(state.phase === "playing" && state.burnSign !== 0);
 
+    const currentTarget = state.level.targets[state.currentTargetIndex];
+
     hud.phase = state.phase;
     hud.fuel = state.ship.fuel;
     hud.fuelCapacity = state.level.fuelCapacity;
     hud.warpMultiplier = state.warpMultiplier;
-    hud.phaseAngle = phaseAngle(state.ship.pos, targetPosition(state.level.targetOrbit, state.t));
+    hud.phaseAngle = phaseAngle(state.ship.pos, targetPosition(currentTarget, state.t));
+    hud.targetIndex = state.currentTargetIndex;
+    hud.targetCount = state.level.targets.length;
 
     const preview = tracePreview(state.ship);
-    const closest = findClosestApproach(preview, state.level.targetOrbit, state.t);
+    const closest = findClosestApproach(preview, currentTarget, state.t);
     hud.closestGap = closest.gap;
     hud.closestRelativeSpeed = closest.relativeSpeed;
 

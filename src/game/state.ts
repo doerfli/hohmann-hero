@@ -19,6 +19,8 @@ export interface GameState {
   phase: Phase;
   /** Count of discrete burn holds this run (a scoring input), incremented once per pointerdown, not per physics sub-step. */
   burnCount: number;
+  /** Index into level.targets of the target currently being pursued; advances as each is captured, on multi-target "milk run" levels. */
+  currentTargetIndex: number;
 }
 
 export function createGameState(level: Level): GameState {
@@ -30,6 +32,7 @@ export function createGameState(level: Level): GameState {
     warpMultiplier: 1,
     phase: "playing",
     burnCount: 0,
+    currentTargetIndex: 0,
   };
 }
 
@@ -41,6 +44,7 @@ export function resetGameState(state: GameState): void {
   state.warpMultiplier = fresh.warpMultiplier;
   state.phase = fresh.phase;
   state.burnCount = fresh.burnCount;
+  state.currentTargetIndex = fresh.currentTargetIndex;
 }
 
 /** Switches to a new level and resets to its starting state. */

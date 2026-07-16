@@ -11,6 +11,9 @@
   </div>
   <div>Fuel: {Math.round(hud.fuel)} / {hud.fuelCapacity}</div>
   <div>Warp: ×{hud.warpMultiplier}</div>
+  {#if hud.targetCount > 1}
+    <div>Target {Math.min(hud.targetIndex + 1, hud.targetCount)} of {hud.targetCount}</div>
+  {/if}
   <div>Phase angle: {phaseAngleDeg}°</div>
   <div>Gap: {hud.gap.toFixed(1)}</div>
   <div>Rel. speed: {hud.relativeSpeed.toFixed(1)}</div>

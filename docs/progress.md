@@ -49,32 +49,32 @@ Goal per the specs: prove the physics feels right, with no HUD framework, no tim
 
 **Manual/browser verification** (headless Chromium via Playwright, screenshots inspected, no console errors): warp stepper cycles 1→5→25→100 and back correctly (after the frame-lag fix above), and snaps to ×1 the instant a burn starts; all four levels render at the correct scale with sane HUD numbers (phase angle, gap, closest approach) when switched to via the level-select strip; locked levels are genuinely unclickable on a fresh save. Did not script an exact rendezvous win end-to-end in-browser (per the Phase 1 note, nailing that timing via scripted events is imprecise and is the actual gameplay skill) — win/scoring/persistence correctness instead relies on the unit tests above plus a read-through of `loop.ts`'s win-transition wiring.
 
-## Phase 3 — planned
+## Phase 3 — done
 
 Phase 3 is not one feature — it's several independent subsystems (spec §9/§16, stack §10). It's split into **6 sequential chunks**, each independently testable and shippable, ordered mechanics-first so gameplay is finished before polish wraps around it. **Radial burns are out of scope** (spec §4 marks them "optional later"), so the final set is **7 levels** (1–4 done + 5/6/7), not 8. Every chunk keeps the `sim / render / game / ui` seam and the two non-negotiables (symplectic fixed-timestep integrator; predictor and live sim share `stepShip`). Each chunk is its own branch/PR with tests green before the next, and updates this changelog when it lands.
 
-### Chunk 1 — Eccentric target orbits + Level 6
+### Chunk 1 — Eccentric target orbits + Level 6 — done
 
 Targets can ride elliptical orbits, propagated exactly (on-rails), behind the same `targetPosition`/`targetVelocity` shape everything already consumes.
 
-- **New `src/sim/kepler.ts`** (pure, tested): `solveKepler(M, e)` — Newton–Raphson for eccentric anomaly `E` from mean anomaly `M`; and `keplerState(orbit, t)` → `{pos, vel}`. Mean motion `n = sqrt(MU/a³)`; `M = M0 + n·t`; `r = a(1 − e·cos E)`; position in the orbital frame rotated by `argPeriapsis`; velocity from the analytic `Ė` derivative (not finite differences).
-- **`src/sim/target.ts`**: discriminated union `TargetOrbit = CircularOrbit | KeplerOrbit` (`KeplerOrbit = { kind: "kepler", a, e, argPeriapsis, meanAnomaly0 }`). `targetPosition`/`targetVelocity` dispatch on the tag — circular keeps its cheap analytic path; kepler calls `keplerState`. Preserves the existing extension-point contract.
-- **Ripple (type-only):** switch `CircularOrbit` references in `rendezvous.ts`, `closestApproach.ts`, `levels.ts` to `TargetOrbit`. No logic change.
-- **`src/render/draw.ts`**: draw an elliptical orbit guide (offset center + rotation) for a `KeplerOrbit`; optionally mark the target's peri/apoapsis.
-- **`src/game/levels.ts`**: add **Level 6 "Eccentric Target"** — geometry authored so rendezvous is achievable near peri/apoapsis (numeric tuning; verify with a scripted forward-sim). `levelWorldRadius` must use ellipse apoapsis `a(1+e)`.
-- **Tests (`test/sim/kepler.test.ts`):** solver converges + `M→E→M` round-trip; `e=0` matches the circular analytic path (continuity); position periodic over `2π/n`; energy/semi-major-axis constant along the path.
+- **New `src/sim/kepler.ts`** (pure, tested): `solveKepler(M, e)` — Newton–Raphson (30-iter cap, quadratic convergence, high-e seed) for eccentric anomaly `E` from mean anomaly `M`; `keplerState(orbit, t)` → `{pos, vel}` computed in the perifocal frame (`px = a(cosE−e)`, `py = b·sinE`) then rotated by `argPeriapsis`; velocity from the analytic `Ė = n/(1−e·cosE)` derivative, **not** finite differences. `meanMotion(a) = sqrt(MU/a³)` exported for reuse.
+- **`src/sim/target.ts`**: discriminated union `TargetOrbit = CircularOrbit | KeplerOrbit` — `CircularOrbit` gained an optional `kind?: "circular"` so the union narrows on `orbit.kind === "kepler"`. `targetPosition`/`targetVelocity` dispatch on the tag (circular keeps its cheap trig path; kepler defers to `keplerState`). New `orbitMaxRadius(orbit)` returns a circle's radius or an ellipse's apoapsis `a(1+e)`.
+- **Ripple (type-only):** `CircularOrbit` → `TargetOrbit` in `rendezvous.ts`, `closestApproach.ts`, `levels.ts`. No logic change.
+- **`src/render/draw.ts`**: `drawOrbitGuide` renders an ellipse for a `KeplerOrbit` via `ctx.ellipse` — geometric center offset by `a·e` toward apoapsis, screen rotation `−argPeriapsis` (the world y-up vs. canvas y-down flip). The target marker already routes through `targetPosition`, so it follows the ellipse for free.
+- **`src/game/levels.ts`**: **Level 6 "Eccentric Target"** — target on an `a=210, e=0.45` ellipse (`argPeriapsis=0`, `meanAnomaly0=−0.503`). `meanAnomaly0` was tuned with a scripted forward-sim (real integrator + `stepShip`): an immediate prograde Hohmann to the apoapsis (`a(1+e)≈304.5`) arrives as the target does, closing to **0.08u gap at ~2.2 u/s** — well inside capture. Periapsis (`≈115.5`) dips inside the ship's start orbit but clears the planet. `levelWorldRadius` now sizes to `orbitMaxRadius` (apoapsis for ellipses).
+- **Tests (`test/sim/kepler.test.ts`, 6):** solver satisfies `M = E − e·sinE` across `M`/`e`; `e=0` matches the circular analytic path (continuity); periodic over `2π/n`; energy/semi-major-axis constant along the path; peri/apoapsis at `a(1∓e)`. `levels.test.ts` extended for the eccentric orbit (valid ellipse, periapsis clears the planet).
 
-### Chunk 2 — Multi-target levels + Level 7 "Milk Run"
+### Chunk 2 — Multi-target levels + Level 7 "Milk Run" — done
 
 A level can require visiting several targets in sequence on one fuel budget.
 
-- **`src/game/levels.ts`**: `Level.targetOrbit` → `targets: TargetOrbit[]` (adapt Levels 1–6 to single-element arrays).
-- **`src/game/state.ts`**: `GameState` gains `currentTargetIndex` (reset by `resetGameState`).
-- **`src/game/rendezvous.ts`**: check against the *current* target; capture of a non-final target advances the index and stays `phase: "playing"`; `"won"` only on the last target. Return a distinct "captured, advance" signal for `loop.ts`.
-- **`src/game/loop.ts`**: on a non-final capture, advance `currentTargetIndex` (brief HUD/audio cue), fuel carries over; final capture wins as today.
-- **`src/render/draw.ts`** + **`src/ui/Hud.svelte`**: draw all remaining targets (current highlighted); HUD shows "Target 2 of 3"; closest-approach tracks the current target.
-- **`src/game/levels.ts`**: add **Level 7 "Milk Run"** — two targets in sequence.
-- **Tests:** advancement logic (win only after all captured; index advances per capture; fuel persists across targets).
+- **`src/game/levels.ts`**: `Level.targetOrbit` → `targets: TargetOrbit[]` (Levels 1–6 became single-element arrays). `levelWorldRadius` fits the farthest reach across *all* targets.
+- **`src/game/state.ts`**: `GameState` gained `currentTargetIndex` (0 in `createGameState`, reset by `resetGameState`).
+- **`src/game/rendezvous.ts`**: new pure `checkMultiRendezvous(ship, targets, currentIndex, …)` wrapping the single-target `checkRendezvous` — checks only the *current* target; capturing a non-final one returns `phase: "playing"` with `currentTargetIndex+1` and `captured: true`; `"won"` fires only on the last. Crash/fuel-out still lose. Kept pure so the advancement rule is unit-tested apart from the render loop.
+- **`src/game/loop.ts`**: uses `checkMultiRendezvous`; on an intermediate capture it advances `state.currentTargetIndex` and sounds the rendezvous chime (fuel/ship state carry over untouched); final capture wins as before. Per-frame HUD readouts (phase angle, closest approach) now track the current target.
+- **`src/render/draw.ts`** + **`src/ui/Hud.svelte`** + **`hud.svelte.ts`**: `drawTargetOrbits`/`drawTargets` render every *remaining* target — current one at full strength with its capture ring, upcoming ones dimmed and numbered. HUD shows "Target N of M" only when a level has more than one.
+- **`src/game/levels.ts`**: **Level 7 "Milk Run"** — Target A is Level 1's proven Hohmann target at r=250, then a return Hohmann down to r=150 catches Target B (`startAngle=2.8531`). Both phases tuned with a scripted two-transfer forward-sim; an end-to-end run through the real `checkMultiRendezvous` confirms capture of A at t≈11 (stays playing → advances) then B at t≈23 → **won** (~30 fuel ideal, budget 100). `parBurns=4, parTime=26`.
+- **Tests:** new `test/game/rendezvous.test.ts` (6) — index advances on non-final capture, win only after the last, checks the current (not an earlier) target, far/fuel-out cases, single-target wins immediately. `levels.test.ts` grew to 7-level assertions + a Level 7 multi-target check. Full suite **45 green**; `tsc` + `svelte-check` clean; production build succeeds.
 
 ### Chunk 3 — Level 5 "Tight Budget" + level-set finalization — done
 

@@ -1,5 +1,5 @@
 # ---- Build stage: compile the static bundle with Bun ----
-FROM oven/bun:1.3-alpine AS build
+FROM oven/bun:1.4-alpine AS build
 WORKDIR /app
 
 # Install deps first so this layer is cached unless the lockfile changes
